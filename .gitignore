@@ -1,2 +1,4 @@
 .idea/
-sterowanie_piecem/secrets.py
+sterowanie_piecem/my_secrets.py
+*.log
+__pycache__/
