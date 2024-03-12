@@ -27,7 +27,8 @@ def handle_http_request(func):
 def change_setting(url, value_to_set):
     logger.debug(f'Change setting to "{value_to_set}"')
     send_pushnotification(f'Piec został {change_status_text[value_to_set]}')
-    # response = requests.post(url, data=value_to_set, timeout=5)
+    response = requests.post(url, data=value_to_set, timeout=5)
+    logger.debug(f'change_setting: {response.json()}')
 
 
 def send_pushnotification(message, priority=0, push_url=app_push_url):
