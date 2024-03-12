@@ -1,10 +1,15 @@
 from datetime import datetime, timedelta
-import requests
-from sterowanie_piecem.config import *
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import yagmail
+
 
 datetime_format = "%H:%M %d-%m"
 date = date_minus_one_day = (datetime.now() - timedelta(days=1)).strftime("%d-%m-%Y")
 file = f'{date}_zuzycie_pradu.csv'
+# file = f'zuzycie_pradu.csv'
+plot_name = f'{date}_wykres_mocy.png'
 
 with open(file, 'r', newline='') as rfile:
     night_sum = 0
@@ -27,10 +32,46 @@ day_average = round((day_sum / day_denominator) * 60, 2)
 night_average = round((night_sum / night_denominator) * 60, 2)
 day24_average = round((day_average + night_average) / 2, 2)
 print(f'{day24_average=}\n{day_average=}\n{night_average=}')
-
-message = f'Srednia dobowa: {day24_average}\nSrednia dzienna: {day_average}\nSrednia nocna: {night_average}'
-requests.post(f'{app_push_url}&message={message}&priority={0}')
-
+message = f'Srednia dobowa: {day24_average}\nSrednia dzienna(6-22): {day_average}\n' \
+          f'Srednia nocna(22-6): {night_average}\n'
 
 
+# Ładowanie danych
+df = pd.read_csv(file, header=None, sep=',')
 
+# Konwersja na datetime
+df.columns = ['Czas i data', 'Moc', 'other']
+df['Czas'] = pd.to_datetime(df['Czas i data'], format='%H:%M %d-%m', errors='coerce')
+
+# Tworzenie wykresu
+plt.figure(figsize=(50, 10))
+plt.plot(df['Czas'], df['Moc'], label='Moc urządzenia')
+
+# Formatowanie osi X
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M %d-%m'))
+plt.gca().xaxis.set_major_locator(mdates.MinuteLocator(interval=15))  # Skala co 30 minut
+plt.gcf().autofmt_xdate()  # Automatyczne formatowanie daty/czasu dla lepszej czytelności
+
+plt.xlabel('Czas')
+plt.ylabel('Moc (W)')
+plt.title('Moc w czasie')
+plt.legend()
+plt.tight_layout()
+plt.grid(True, axis='x')
+mail_message = message.replace("\n", "     ")
+plt.figtext(0.5, 0.05, f'{mail_message}', wrap=True, horizontalalignment='center', fontsize=15, color="black", style="italic")
+plt.subplots_adjust(bottom=0.2)
+# plt.tight_layout()
+
+# Zapisanie wykresu do pliku
+plt.savefig(plot_name)
+
+
+# requests.post(f'{app_push_url}&message={message}&priority={0}')
+
+yag = yagmail.SMTP('piec00553@gmail.com', 'xjyy vvao dbli iznc')
+to = 'maciejchalusiak@gmail.com'
+subject = f'Podsumowanie zuzycia {date}'
+body = message
+img = plot_name
+yag.send(to=[to], subject=subject, contents=[body, img])
