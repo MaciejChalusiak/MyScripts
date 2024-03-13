@@ -2,3 +2,6 @@
 sterowanie_piecem/my_secrets.py
 *.log
 __pycache__/
+*.csv
+*.png
+.DS_Store

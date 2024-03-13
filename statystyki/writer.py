@@ -23,13 +23,18 @@ def decode(reg):
 
 
 def get_power():
-    r = requests.get('http://192.168.11.123/api/dev/65/0b46')
-    return r.json()['regs']['0b46']
+    try:
+        r = requests.get('http://192.168.11.123/api/dev/65/0b46')
+        return r.json()['regs']['0b46']
+    except:
+        return None
 
 
 while True:
-    power = decode(get_power())
-    power_consumption = power / 60
-    data = [power, power_consumption]
-    write(data)
+    power = get_power()
+    if power:
+        power = decode(power)
+        power_consumption = power / 60
+        data = [power, power_consumption]
+        write(data)
     time.sleep(60)

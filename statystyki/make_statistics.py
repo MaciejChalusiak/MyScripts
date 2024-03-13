@@ -2,13 +2,17 @@ from datetime import datetime, timedelta
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import requests
+from sterowanie_piecem.config import *
 import yagmail
+import os
 
 
 datetime_format = "%H:%M %d-%m"
-date = date_minus_one_day = (datetime.now() - timedelta(days=1)).strftime("%d-%m-%Y")
+date = (datetime.now()).strftime("%d-%m-%Y")
+script_dir = os.path.dirname(os.path.abspath(__file__))
 file = f'{date}_zuzycie_pradu.csv'
-# file = f'zuzycie_pradu.csv'
+file = os.path.join(script_dir, file)
 plot_name = f'{date}_wykres_mocy.png'
 
 with open(file, 'r', newline='') as rfile:
@@ -61,17 +65,17 @@ plt.grid(True, axis='x')
 mail_message = message.replace("\n", "     ")
 plt.figtext(0.5, 0.05, f'{mail_message}', wrap=True, horizontalalignment='center', fontsize=15, color="black", style="italic")
 plt.subplots_adjust(bottom=0.2)
-# plt.tight_layout()
 
 # Zapisanie wykresu do pliku
 plt.savefig(plot_name)
 
 
-# requests.post(f'{app_push_url}&message={message}&priority={0}')
-
+requests.post(f'{app_push_url}&message={message}&priority={0}')
 yag = yagmail.SMTP('piec00553@gmail.com', 'xjyy vvao dbli iznc')
-to = 'maciejchalusiak@gmail.com'
+to = ['maciejchalusiak@gmail.com', 'kelo.wielun@interia.pl']
 subject = f'Podsumowanie zuzycia {date}'
 body = message
 img = plot_name
-yag.send(to=[to], subject=subject, contents=[body, img])
+response = yag.send(to=to, subject=subject, contents=[body, img])
+print(response)
+print(message)
