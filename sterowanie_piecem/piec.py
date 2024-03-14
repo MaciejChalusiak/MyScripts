@@ -12,14 +12,16 @@ def handle_http_request(func):
         try:
             response = func(*args, **kwargs)
             return response
-        except Exception:
-            logger.warning('handle_http_request: Error occured during send request')
+        except Exception as e:
+            logger.warning(F'handle_http_request: Error occured during send request: {func=}, {e=}')
             if recursion_depth < MAX_RECURSION_DEPTH:
                 time.sleep(resursion_sleep)
                 return inner(*args, recursion_depth=recursion_depth + 1, resursion_sleep=resursion_sleep*2, **kwargs)
             else:
-                logger.warning('handle_http_request: not able to send, skipping')
-                send_pushnotification(f'Not able to send {locals()}', priority=0, push_url=debug_push_url)
+                logger.warning(f'handle_http_request: not able to send {func=}, skipping')
+                send_pushnotification(f'Not able to send {func=} {locals()=}, skiping',
+                                      priority=0, push_url=debug_push_url)
+                return None
     return inner
 
 
@@ -91,17 +93,18 @@ def get_weather_conditions_decision() -> dict:
         'turn_off': False,
     }
     if response.status_code == 200:
-        logger.debug(f"whether response is: {response.status_code}")
         response = response.json()
         temp = response['main']['temp']
         clouds = response['clouds']['all']
+        logger.debug(f"whether:\n\tparams: {temp=}, {clouds=}\n\tresponse is: {response}")
         if temp >= 7 and clouds < 70:
             weather_operations['turn_off'] = True
         if temp >= 15:
             weather_operations['turn_off'] = True
         if temp < 6:
             weather_operations['turn_on'] = True
-        send_pushnotification(f'Weather operations: {weather_operations}', -2, push_url=debug_push_url)
+        send_pushnotification(f'Weather operations: {weather_operations}'
+                              f'params: {temp=}, {clouds=}', -2, push_url=debug_push_url)
     else:
         send_pushnotification('Can not get weather', push_url=debug_push_url)
     logger.debug(f'Weather operations: "{weather_operations}"')
@@ -114,11 +117,14 @@ async def make_operations_based_on_weather():
         if next_event['event_type'] == 'start_watching':
             logger.debug('Waiting for start watching weather conditions')
             await asyncio.sleep(next_event['time_to'])
-        if get_weather_conditions_decision()['turn_off']:
+        weather_conditions = get_weather_conditions_decision()
+        if weather_conditions and weather_conditions['turn_off']:
             change_setting(working_mode_url, working_mode_dict['shutdown'])
             await asyncio.sleep(minimal_turn_off_time)
-            while calc_time_to_sec(turn_on_across_weather) > calc_time_to_sec(get_current_time()) and \
-                    not get_weather_conditions_decision()['turn_on']:
+            while calc_time_to_sec(turn_on_across_weather) > calc_time_to_sec(get_current_time()):
+                weather_conditions = get_weather_conditions_decision()
+                if weather_conditions and get_weather_conditions_decision()['turn_on']:
+                    break
                 logger.debug('Sleep until next weather interval')
                 await asyncio.sleep(checking_weather_interval)
             change_setting(working_mode_url, working_mode_dict['turn_on'])
