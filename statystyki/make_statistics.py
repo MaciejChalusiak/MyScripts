@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -52,13 +52,14 @@ plt.figure(figsize=(50, 10))
 plt.plot(df['Czas'], df['Moc'], label='Moc urządzenia')
 
 # Formatowanie osi X
-plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M %d-%m'))
-plt.gca().xaxis.set_major_locator(mdates.MinuteLocator(interval=15))  # Skala co 30 minut
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+plt.gca().xaxis.set_major_locator(mdates.MinuteLocator(byminute=[0, 15, 30, 45]))
+plt.gca().axhline(y=6, color='gray', linestyle='-', linewidth=0.5)
 plt.gcf().autofmt_xdate()  # Automatyczne formatowanie daty/czasu dla lepszej czytelności
 
 plt.xlabel('Czas')
 plt.ylabel('Moc (W)')
-plt.title('Moc w czasie')
+plt.title(f'Moc w czasie {date}')
 plt.legend()
 plt.tight_layout()
 plt.grid(True, axis='x')
