@@ -37,8 +37,8 @@ with open(file, 'r', newline='') as rfile:
 data_count = day_denominator + night_denominator
 day_average = round((day_sum / day_denominator) * 60, 2)
 night_average = round((night_sum / night_denominator) * 60, 2)
-day24_average = round((power_consumption / data_count) * 60, 2)
-calculated_consumption = round((day_sum / day_denominator) * 60 * 24, 2)
+calculated_consumption = round((power_consumption / data_count) * 60 * 24, 2)
+day24_average = round(calculated_consumption / 24, 2)
 message = f'Dzienne zużycie energii: {calculated_consumption}\nSrednia dobowa: {day24_average}\n' \
           f'Srednia dzienna(6-22): {day_average}\nSrednia nocna(22-6): {night_average}\n'
 print(message)
