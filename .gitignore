@@ -3,5 +3,7 @@ sterowanie_piecem/my_secrets.py
 *.log
 __pycache__/
 *.csv
+*.csv*
+*log*
 *.png
 .DS_Store

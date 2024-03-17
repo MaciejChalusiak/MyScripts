@@ -20,24 +20,28 @@ with open(file, 'r', newline='') as rfile:
     night_denominator = 0
     day_sum = 0
     day_denominator = 0
+    power_consumption = 0
     for line in rfile.readlines():
         line = line.strip().split(',')
         csv_time = datetime.strptime(line[0], datetime_format).time()
         time6 = datetime.strptime('06:00', "%H:%M").time()
         time22 = datetime.strptime('22:00', "%H:%M").time()
-        if time22 > csv_time < time6:
+        power_consumption += float(line[2])
+        if csv_time < time6 or csv_time > time22:
             night_denominator += 1
             night_sum += float(line[2])
         else:
             day_denominator += 1
             day_sum += float(line[2])
 
+data_count = day_denominator + night_denominator
 day_average = round((day_sum / day_denominator) * 60, 2)
 night_average = round((night_sum / night_denominator) * 60, 2)
-day24_average = round((day_average + night_average) / 2, 2)
-print(f'{day24_average=}\n{day_average=}\n{night_average=}')
-message = f'Srednia dobowa: {day24_average}\nSrednia dzienna(6-22): {day_average}\n' \
-          f'Srednia nocna(22-6): {night_average}\n'
+day24_average = round((power_consumption / data_count) * 60, 2)
+calculated_consumption = round((day_sum / day_denominator) * 60 * 24, 2)
+message = f'Dzienne zużycie energii: {calculated_consumption}\nSrednia dobowa: {day24_average}\n' \
+          f'Srednia dzienna(6-22): {day_average}\nSrednia nocna(22-6): {night_average}\n'
+print(message)
 
 
 # Ładowanie danych
