@@ -1,5 +1,6 @@
 .idea/
 sterowanie_piecem/my_secrets.py
+klima/my_secrets.py
 *.log
 __pycache__/
 *.csv

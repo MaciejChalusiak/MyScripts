@@ -35,7 +35,10 @@ def change_setting(url, value_to_set):
 
 def send_pushnotification(message, priority=0, push_url=app_push_url):
     logger.debug(f'Notification with message: "{message}" and priority "{priority}" out')
-    requests.post(f'{push_url}&message={message}&priority={priority}')
+    try:
+        requests.post(f'{push_url}&message={message}&priority={priority}')
+    except Exception as e:
+        logger.warning(f'not able to send notification: {e}')
 
 
 @handle_http_request
