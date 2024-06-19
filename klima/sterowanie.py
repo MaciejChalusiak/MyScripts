@@ -43,7 +43,7 @@ def change_temp(device, target_temp, power_state=1):
     command = [
         'midea-beautiful-air-cli',
         'set',
-        '--ip', f"{devices_secrets[device]['addr']}",
+        '--ip', f"{devices_secrets[selected_device]['addr']}",
         '--token', f"{devices_secrets[device]['token']}",
         "--key", f"{devices_secrets[device]['key']}",
         "--target-temperature", f"{target_temp}",
