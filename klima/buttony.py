@@ -33,7 +33,7 @@ devices = {
 }
 
 
-def button_pressed(device):
+def button_pressed(device, temp='24'):
     print(f'Nacinieto {device}')
     if devices[device]['process'] is not None and devices[device]['process'].poll() is None:
         subprocess.Popen([*oled_command, f'{device} - OFF'])
@@ -42,7 +42,7 @@ def button_pressed(device):
     else:
         subprocess.Popen([*oled_command, f'{device} - ON'])
         print(f'{device} on')
-        devices[device]['process'] = subprocess.Popen([*sterowanie_command, f'{device}'])
+        devices[device]['process'] = subprocess.Popen([*sterowanie_command, f'{device}', '--target_temp', str(temp)])
     time.sleep(0.5)
 
 
@@ -54,4 +54,4 @@ while True:
         button_pressed('Sypialnia')
 
     if GPIO.input(button_pin_salon) == GPIO.LOW:
-        button_pressed('Salon')
+        button_pressed('Salon', temp='23.5')
