@@ -30,31 +30,29 @@ while True:
         print('Nacinieto biuro')
         if biuro != 'first' and biuro.poll() is None:
             print('biuro off')
-            biuro.kill()
+            biuro.terminate()
         else:
             print('biuro on')
             biuro = subprocess.Popen([*command, 'Biuro'])
-        time.sleep(1)
+        time.sleep(0.5)
 
     if GPIO.input(button_pin_sypialnia) == GPIO.LOW:
         print('Nacinieto sypialnia')
         if sypialnia != 'first' and sypialnia.poll() is None:
             print('sypialnia off')
-            sypialnia.kill()
+            sypialnia.terminate()
         else:
             print('sypialnia on')
             sypialnia = subprocess.Popen([*command, 'Sypialnia'])
-        time.sleep(1)
+        time.sleep(0.5)
 
 
     if GPIO.input(button_pin_salon) == GPIO.LOW:
         print('Nacinieto salon')
         if salon != 'first' and salon.poll() is None:
             print('salon off')
-            salon.kill()
+            salon.terminate()
         else:
             print('salon on')
             salon = subprocess.Popen([*command, 'Salon'])
-        time.sleep(1)
-
-    time.sleep(0.1)
+        time.sleep(0.5)
