@@ -3,7 +3,7 @@ from my_secrets import devices_secrets
 import time
 import argparse
 import logging
-# import signal
+import signal
 import sys
 
 current_device_dict = {}
@@ -15,9 +15,10 @@ logging.basicConfig(level='INFO',
 
 logger = logging.getLogger(__name__)
 
-# def handle_terminate(signum, frame):
-#     change_temp(selected_device, target_temp, power_state=0)
-#     exit(0)
+
+def handle_terminate(signum, frame):
+    change_temp(selected_device, target_temp, power_state=0)
+    exit(0)
 
 
 def get_devices_and_token():
@@ -51,7 +52,7 @@ def change_temp(device, target_temp, power_state=1):
         '--ip', f"{devices_secrets[selected_device]['addr']}",
         '--token', f"{devices_secrets[device]['token']}",
         "--key", f"{devices_secrets[device]['key']}",
-        "--target-temperature", f"{target_temp}",
+        "--target-temperature", f"{int(target_temp)}",
         "--running", f"{power_state}",
         "--mode", '2',
     ]
@@ -111,7 +112,7 @@ def handle_system_command(command):
 
 
 if __name__ == "__main__":
-    # signal.signal(signal.SIGTERM, handle_terminate)
+    signal.signal(signal.SIGTERM, handle_terminate)
     parse_arguments()
     while True:
         try:
