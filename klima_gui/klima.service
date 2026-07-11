@@ -6,8 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=maciek
-WorkingDirectory=/home/maciek/Desktop/klima
-ExecStart=/home/maciek/Desktop/klima/venv/bin/python3 /home/maciek/Desktop/klima/app.py
+WorkingDirectory=/home/maciek/Desktop/MyScripts/klima_gui
+ExecStart=/home/maciek/Desktop/MyScripts/klima_gui/venv/bin/python3 /home/maciek/Desktop/MyScripts/klima_gui/app.py
 Restart=on-failure
 RestartSec=5
 

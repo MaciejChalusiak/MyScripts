@@ -1,7 +1,7 @@
 Adres IP RPi zero W: ssh maciek@192.168.1.124
 haslo: na bitwarden
 
-Folder: Desktop/klima
+Folder: Desktop/MyScripts/klima_gui
 
 Architektura:
 - my_secrets.py    - dane dostępowe (adres IP, token, key) do każdej klimatyzacji Midea
@@ -18,7 +18,7 @@ Architektura:
                       żeby restart usługi (np. po zaniku prądu) przywrócił poprzedni stan
 
 Instalacja na RPi Zero:
-  cd /home/maciek/Desktop/klima
+  cd /home/maciek/Desktop/MyScripts/klima_gui
   python3 -m venv venv
   source venv/bin/activate
   pip install -r requirements.txt
@@ -29,6 +29,10 @@ Uruchomienie jako usługa systemd (autostart + restart po awarii):
   sudo systemctl enable --now klima.service
   sudo systemctl status klima.service
   journalctl -u klima -f     # podgląd logów
+
+  Po każdej zmianie pliku klima.service (np. ścieżek) trzeba powtórzyć
+  "sudo cp" + "sudo systemctl daemon-reload" + "sudo systemctl restart klima"
+  - samo nadpisanie pliku nie wystarczy, systemd nie przeładowuje go sam.
 
 Dostęp z telefonu spoza sieci RPi (Cloudflare Tunnel + Access):
   RPi Zero (sieć IoT) i telefon (inna sieć/inne WiFi) są odizolowane na routerze
@@ -52,31 +56,62 @@ Dostęp z telefonu spoza sieci RPi (Cloudflare Tunnel + Access):
      (Cloudflare poda 2 nameservery - podmień je u rejestratora domeny na te
      wskazane przez Cloudflare; propagacja to zwykle kilkadziesiąt minut do
      kilku godzin).
-  3. Na RPi Zero zainstaluj cloudflared:
-       curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm.deb -o cloudflared.deb
-       sudo dpkg -i cloudflared.deb
+  3. Na RPi Zero zainstaluj cloudflared. UWAGA: pakiet .deb "cloudflared-linux-arm.deb"
+     ma architekturę "arm", a RPi Zero zgłasza się jako "armhf" - dpkg odmówi
+     instalacji błędem "package architecture (arm) does not match system
+     (armhf)". Zamiast .deb pobierz surową binarkę (pomija to sprawdzanie,
+     a "cloudflared service install" w kroku 6 działa tak samo):
+       curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm -o cloudflared
+       chmod +x cloudflared
+       sudo mv cloudflared /usr/local/bin/cloudflared
+       cloudflared version   # sanity check
   4. Zaloguj i utwórz tunel:
        cloudflared tunnel login      # otworzy link do zalogowania w przeglądarce
        cloudflared tunnel create klima
-       cloudflared tunnel route dns klima klima.twojadomena.pl
-  5. Skonfiguruj plik ~/.cloudflared/config.yml:
+       cloudflared tunnel route dns klima klima.maciekklima.pl
+  5. "sudo cloudflared service install" (krok 6) działa jako root i szuka
+     config.yml w /etc/cloudflared, NIE w ~/.cloudflared zwykłego użytkownika -
+     dlatego config i plik z danymi logowania tunelu trzeba przenieść tam:
+       sudo mkdir -p /etc/cloudflared
+       sudo mv ~/.cloudflared/10591d66-31db-43c8-9e9f-12db3e544e39.json /etc/cloudflared/
+       sudo nano /etc/cloudflared/config.yml
+     Zawartość config.yml:
        tunnel: klima
-       credentials-file: /home/maciek/.cloudflared/<tunnel-id>.json
+       credentials-file: /etc/cloudflared/10591d66-31db-43c8-9e9f-12db3e544e39.json
        ingress:
-         - hostname: klima.twojadomena.pl
+         - hostname: klima.maciekklima.pl
            service: http://localhost:5000
          - service: http_status:404
   6. Uruchom jako usługę systemd (autostart + restart po awarii):
        sudo cloudflared service install
        sudo systemctl enable --now cloudflared
        sudo systemctl status cloudflared
+     Jeśli start kończy się błędem "Job for cloudflared.service failed because
+     a timeout was exceeded" (RPi Zero + QUIC na słabym Wi-Fi bywa zbyt wolne -
+     w journalctl widać, że proces jest w trakcie łączenia, ale systemd go
+     ubija zanim skończy), podnieś limit czasu startu przez override:
+       sudo systemctl edit cloudflared.service
+     W GÓRNEJ, pustej, edytowalnej części pliku (nad linią "Lines below this
+     comment will be discarded" - wszystko poniżej niej jest tylko podglądem
+     i zostanie zignorowane) wpisz:
+       [Service]
+       TimeoutStartSec=180
+     Zapisz, wyjdź, i:
+       sudo systemctl daemon-reload
+       sudo systemctl restart cloudflared
+       journalctl -u cloudflared --no-pager -n 40
+     "sudo systemctl enable --now" ustawia jednocześnie autostart na boocie
+     ORAZ startuje usługę teraz - nic więcej nie trzeba ręcznie odpalać.
+     Po poprawnym starcie sprawdź:
+       systemctl is-enabled cloudflared   # ma pokazać "enabled"
+       systemctl status cloudflared       # ma pokazać "active (running)"
   7. W panelu https://one.dash.cloudflare.com (Zero Trust) -> Access ->
-     Applications -> dodaj aplikację dla hostname klima.twojadomena.pl,
+     Applications -> dodaj aplikację dla hostname klima.maciekklima.pl,
      z polityką logowania np. "e-mail w liście dozwolonych adresów" (kod
      jednorazowy wysyłany na e-mail, bez hasła do zapamiętania).
 
   Potem w przeglądarce na telefonie (dowolna sieć, bez żadnej dodatkowej
   apki) wchodzisz na:
-    https://klima.twojadomena.pl
+    https://klima.maciekklima.pl
   pierwsze logowanie poprosi o kod z e-maila, kolejne wizyty pamiętają sesję
   przez czas ustawiony w polityce Access (np. 24h).
