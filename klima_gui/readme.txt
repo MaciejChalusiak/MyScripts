@@ -30,30 +30,53 @@ Uruchomienie jako usługa systemd (autostart + restart po awarii):
   sudo systemctl status klima.service
   journalctl -u klima -f     # podgląd logów
 
-Dostęp z telefonu spoza sieci RPi (Tailscale):
+Dostęp z telefonu spoza sieci RPi (Cloudflare Tunnel + Access):
   RPi Zero (sieć IoT) i telefon (inna sieć/inne WiFi) są odizolowane na routerze
   celowo (izolacja klientów), więc zwykłe lokalne IP nie zadziała między nimi.
-  Tailscale robi prywatny VPN mesh między urządzeniami przez internet, bez
-  zmiany ustawień routera i bez otwierania portów na świat. Plan darmowy
-  (Personal) wystarcza w zupełności - do 6 użytkowników, bez limitu urządzeń.
+  Zamiast VPN-a (Tailscale) - który wymaga stałej apki działającej w tle na
+  telefonie - używamy Cloudflare Tunnel: RPi łączy się WYCHODZĄCO do sieci
+  Cloudflare (bez otwierania portów na routerze, bez zmiany jego ustawień),
+  a appka jest dostępna pod zwykłym adresem https:// w przeglądarce, bez
+  żadnej dodatkowej apki na telefonie. Logowanie (żeby appka nie była
+  publicznie dostępna dla całego internetu) załatwia Cloudflare Access -
+  ekran logowania (np. kod na e-mail) pokazuje się PRZED dotarciem ruchu do
+  RPi, więc w app.py nie trzeba nic dopisywać.
 
-  Na RPi Zero:
-    curl -fsSL https://tailscale.com/install.sh | sh
-    sudo tailscale up
-    (skrypt pokaże link - zaloguj się w przeglądarce kontem Google/GitHub/Microsoft
-    i autoryzuj urządzenie)
-    tailscale ip -4        # pokazuje adres RPi w sieci Tailscale, np. 100.x.y.z
+  Wymagana własna domena (jakikolwiek TLD, ~10-15$/rok u dowolnego
+  rejestratora, np. Namecheap/Porkbun/Cloudflare Registrar) - Cloudflare sam
+  w sobie jest darmowy (Free plan), ale musi mieć jakąś domenę podpiętą do
+  konta, żeby wystawić na niej stały adres i regułę logowania.
 
-  Na telefonie:
-    zainstaluj appkę "Tailscale" (App Store / Google Play) i zaloguj się tym
-    samym kontem co na RPi
+  1. Kup domenę u dowolnego rejestratora (jeśli jeszcze nie masz).
+  2. Załóż darmowe konto na https://dash.cloudflare.com i dodaj tę domenę
+     (Cloudflare poda 2 nameservery - podmień je u rejestratora domeny na te
+     wskazane przez Cloudflare; propagacja to zwykle kilkadziesiąt minut do
+     kilku godzin).
+  3. Na RPi Zero zainstaluj cloudflared:
+       curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm.deb -o cloudflared.deb
+       sudo dpkg -i cloudflared.deb
+  4. Zaloguj i utwórz tunel:
+       cloudflared tunnel login      # otworzy link do zalogowania w przeglądarce
+       cloudflared tunnel create klima
+       cloudflared tunnel route dns klima klima.twojadomena.pl
+  5. Skonfiguruj plik ~/.cloudflared/config.yml:
+       tunnel: klima
+       credentials-file: /home/maciek/.cloudflared/<tunnel-id>.json
+       ingress:
+         - hostname: klima.twojadomena.pl
+           service: http://localhost:5000
+         - service: http_status:404
+  6. Uruchom jako usługę systemd (autostart + restart po awarii):
+       sudo cloudflared service install
+       sudo systemctl enable --now cloudflared
+       sudo systemctl status cloudflared
+  7. W panelu https://one.dash.cloudflare.com (Zero Trust) -> Access ->
+     Applications -> dodaj aplikację dla hostname klima.twojadomena.pl,
+     z polityką logowania np. "e-mail w liście dozwolonych adresów" (kod
+     jednorazowy wysyłany na e-mail, bez hasła do zapamiętania).
 
-  Potem w przeglądarce na telefonie wchodzisz na:
-    http://<tailscale-ip-RPi>:5000
-  albo przez MagicDNS (nazwa urządzenia zamiast IP, widoczna w panelu
-  https://login.tailscale.com/admin/machines), np.:
-    http://klima-pi:5000
-
-  Warunek: sieć, w której siedzi RPi, musi mieć dostęp do internetu (nawet
-  jeśli jest odizolowana od innych sieci lokalnych) - Tailscale łączy się
-  na zewnątrz, a nie po LAN.
+  Potem w przeglądarce na telefonie (dowolna sieć, bez żadnej dodatkowej
+  apki) wchodzisz na:
+    https://klima.twojadomena.pl
+  pierwsze logowanie poprosi o kod z e-maila, kolejne wizyty pamiętają sesję
+  przez czas ustawiony w polityce Access (np. 24h).

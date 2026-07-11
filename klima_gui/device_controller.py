@@ -74,6 +74,11 @@ class DeviceController:
             if self.power_on:
                 return
             target = self.target_temp
+            # Ustawiane od razu (nie po odpowiedzi urządzenia), bo wysłanie
+            # komendy do klimatyzacji trwa kilka sekund na RPi Zero - inaczej
+            # /api/status odpytywane w tym czasie zwraca jeszcze stare
+            # power_on=False i przełącznik w GUI miga z powrotem na "off".
+            self.power_on = True
 
         ac_target = int(target)
         try:
@@ -81,12 +86,11 @@ class DeviceController:
         except Exception as e:
             logger.error("%s: failed to turn on", self.name, exc_info=True)
             with self._state_lock:
+                self.power_on = False
                 self.last_error = str(e)
             raise
 
         self._ac_internal_target = ac_target
-        with self._state_lock:
-            self.power_on = True
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
