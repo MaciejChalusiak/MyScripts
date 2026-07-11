@@ -1,0 +1,5 @@
+my_secrets.py
+state.json
+__pycache__/
+*.pyc
+venv/

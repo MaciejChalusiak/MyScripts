@@ -1,0 +1,15 @@
+[Unit]
+Description=Klima - sterowanie klimatyzacja przez GUI
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=maciek
+WorkingDirectory=/home/maciek/Desktop/klima
+ExecStart=/home/maciek/Desktop/klima/venv/bin/python3 /home/maciek/Desktop/klima/app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
