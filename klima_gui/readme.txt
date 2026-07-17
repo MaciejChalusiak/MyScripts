@@ -10,7 +10,11 @@ Architektura:
 - device_controller.py - pętla kontrolna z zewnętrzną histerezą (co 60s mierzy temperaturę
                       w pokoju i przestawia wewnętrzny target klimatyzacji, żeby wymusić
                       chłodzenie albo je zatrzymać; trzyma temperaturę w paśmie ~1 stopnia
-                      zamiast domyślnych ~4 stopni klimatyzacji)
+                      zamiast domyślnych ~4 stopni klimatyzacji). Przełączanie chłodzenie
+                      włącz/wyłącz jest dodatkowo ograniczone do raz na 6 minut
+                      (MIN_COMPRESSOR_CYCLE_SECONDS), żeby nie męczyć sprężarki zbyt
+                      częstym cyklowaniem, nawet jeśli temperatura wyjdzie poza pasmo
+                      wcześniej.
 - app.py           - serwer Flask z GUI, jeden proces obsługujący wszystkie klimatyzacje
 - templates/index.html - strona sterująca (włącz/wyłącz, +/- temperatura), otwierana
                       z telefonu/laptopa pod adresem http://192.168.1.124:5000

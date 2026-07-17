@@ -7,6 +7,12 @@ mierzymy faktyczną temperaturę w pokoju i przestawiamy wewnętrzny target
 klimatyzacji agresywnie w dół (żeby wymusić chłodzenie) albo w górę (żeby
 chłodzenie zatrzymać), gdy odchylenie od zadanej temperatury przekroczy
 DEVIATION. To trzyma temperaturę w pokoju w paśmie około 1 stopnia.
+
+Żeby nie męczyć sprężarki zbyt częstym przełączaniem chłodzenia
+włącz/wyłącz, zmiana trybu (cooling <-> idle) jest dodatkowo ograniczona do
+raz na MIN_COMPRESSOR_CYCLE_SECONDS - nawet jeśli odchylenie temperatury
+przekroczy DEVIATION wcześniej, poczekamy z przełączeniem do upływu tego
+czasu od poprzedniej zmiany trybu.
 """
 import logging
 import threading
@@ -18,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 DEVIATION = 0.4
 POLL_INTERVAL_SECONDS = 60
+MIN_COMPRESSOR_CYCLE_SECONDS = 6 * 60
 DRYING_DURATION_SECONDS = 20 * 60
 
 # Korekta zawyżenia pomiaru czujnika klimatyzacji względem realnej temperatury
@@ -34,11 +41,13 @@ class DeviceController:
         default_target_temp=24.0,
         deviation=DEVIATION,
         sensor_correction=SENSOR_TEMP_CORRECTION,
+        min_compressor_cycle_seconds=MIN_COMPRESSOR_CYCLE_SECONDS,
     ):
         self.name = name
         self.client = client
         self.deviation = deviation
         self.sensor_correction = sensor_correction
+        self.min_compressor_cycle_seconds = min_compressor_cycle_seconds
 
         self._state_lock = threading.Lock()
         self.target_temp = default_target_temp
@@ -47,6 +56,10 @@ class DeviceController:
         self.last_error = None
 
         self._ac_internal_target = None
+        # Czy ostatnio wymuszaliśmy chłodzenie (True), przestój (False),
+        # czy jeszcze nie zdecydowaliśmy (None, np. tuż po turn_on).
+        self._cooling = None
+        self._last_mode_change = 0.0
         self._stop_event = threading.Event()
         self._thread = None
         self._drying_timer = None
@@ -91,6 +104,10 @@ class DeviceController:
             raise
 
         self._ac_internal_target = ac_target
+        # Świeży start - pierwsza decyzja o chłodzeniu/przestoju w _tick()
+        # ma zapaść od razu, bez czekania na min_compressor_cycle_seconds.
+        self._cooling = None
+        self._last_mode_change = 0.0
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -176,16 +193,33 @@ class DeviceController:
             self.indoor_temp = corrected_indoor_temp
             target_temp = self.target_temp
 
-        new_ac_target = None
+        desired_cooling = None
         if corrected_indoor_temp > target_temp + self.deviation:
-            new_ac_target = int(raw_indoor_temp - 2)
+            desired_cooling = True
         elif corrected_indoor_temp < target_temp - self.deviation:
-            new_ac_target = int(raw_indoor_temp + 3)
+            desired_cooling = False
 
-        if new_ac_target is not None and new_ac_target != self._ac_internal_target:
+        if desired_cooling is None or desired_cooling == self._cooling:
+            # W paśmie docelowym albo już w żądanym trybie - nic do zrobienia.
+            return
+
+        since_last_change = time.time() - self._last_mode_change
+        if since_last_change < self.min_compressor_cycle_seconds:
             logger.info(
-                "%s: indoor(corrected)=%.1f target=%.1f -> setting AC target to %s",
-                self.name, corrected_indoor_temp, target_temp, new_ac_target,
+                "%s: chciałbym przełączyć chłodzenie na %s (indoor(corrected)=%.1f "
+                "target=%.1f), ale minęło tylko %.0fs od ostatniej zmiany (limit %ds) "
+                "- czekam, żeby nie męczyć sprężarki",
+                self.name, desired_cooling, corrected_indoor_temp, target_temp,
+                since_last_change, self.min_compressor_cycle_seconds,
             )
-            self.client.set_state(target_temperature=new_ac_target)
-            self._ac_internal_target = new_ac_target
+            return
+
+        new_ac_target = int(raw_indoor_temp - 2) if desired_cooling else int(raw_indoor_temp + 3)
+        logger.info(
+            "%s: indoor(corrected)=%.1f target=%.1f -> setting AC target to %s (cooling=%s)",
+            self.name, corrected_indoor_temp, target_temp, new_ac_target, desired_cooling,
+        )
+        self.client.set_state(target_temperature=new_ac_target)
+        self._ac_internal_target = new_ac_target
+        self._cooling = desired_cooling
+        self._last_mode_change = time.time()
